@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -7,7 +7,10 @@ import {
   SafeAreaView, 
   StatusBar,
   Image,
-  ScrollView
+  ScrollView,
+  Linking,
+  ActivityIndicator,
+  FlatList
 } from 'react-native';
 import { 
   Ionicons, 
@@ -19,16 +22,41 @@ import {
 } from '@expo/vector-icons';
 
 export default function HomePage() {
-  const [medicineStatus, setMedicineStatus] = useState({
-    thyronorm: 'taken',
-    metformin: 'pending'
-  });
+  const [medicines, setMedicines] = useState([
+    { id: 1, name: 'Thyronorm', doseAmount: '50mg', instruction: 'Before breakfast', status: 'pending' },
+    { id: 2, name: 'Metformin', doseAmount: '500mg', instruction: 'After lunch', status: 'pending' },
+    { id: 3, name: 'Atorvastatin', doseAmount: '10mg', instruction: 'Before bedtime', status: 'pending' },
+  ]);
+  const [loading, setLoading] = useState(true);
 
-  const handleTakeMedicine = (medicine: any) => {
-    setMedicineStatus({
-      ...medicineStatus,
-      [medicine]: 'taken'
-    });
+  const fetchMedicines = async () => {
+    try {
+      const response = await fetch('https://your-backend-api.com/medicines'); // Replace with actual API
+      const data = await response.json();
+      setMedicines(data);
+    } catch (error) {
+      console.error('Error fetching medicines:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTakeMedicine = (id) => {
+    setMedicines((prevMedicines) =>
+      prevMedicines.map((medicine) =>
+        medicine.id === id ? { ...medicine, status: 'taken' } : medicine
+      )
+    );
+  };  
+
+
+  useEffect(() => {
+    fetchMedicines();
+  }, []);
+
+ 
+  const handleEmergencyPress = () => {
+    Linking.openURL('tel:112'); // Replace 911 with the emergency number
   };
 
   return (
@@ -60,49 +88,44 @@ export default function HomePage() {
         </View>
         
         {/* Emergency Help */}
-        <TouchableOpacity style={styles.emergencyButton}>
+        <TouchableOpacity style={styles.emergencyButton} onPress={handleEmergencyPress}>
           <FontAwesome name="phone" size={24} color="white" />
           <Text style={styles.emergencyText}>Emergency Help</Text>
         </TouchableOpacity>
         
         {/* Today's Medicines */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Today's Medicines</Text>
-            <FontAwesome5 name="pills" size={20} color="black" />
-          </View>
-          
-          {/* Medicine 1 */}
-          <View style={styles.medicineCard}>
-            <View style={styles.medicineInfo}>
-              <Text style={styles.medicineName}>Thyronorm 50mg</Text>
-              <Text style={styles.medicineInstruction}>Before breakfast</Text>
-            </View>
-            <View style={styles.takenPill}>
-              <Text style={styles.takenText}>Taken</Text>
-            </View>
-          </View>
-          
-          {/* Medicine 2 */}
-          <View style={styles.medicineCard}>
-            <View style={styles.medicineInfo}>
-              <Text style={styles.medicineName}>Metformin 500mg</Text>
-              <Text style={styles.medicineInstruction}>After lunch</Text>
-            </View>
-            {medicineStatus.metformin === 'pending' ? (
-              <TouchableOpacity 
-                style={styles.takeNowPill}
-                onPress={() => handleTakeMedicine('metformin')}
-              >
-                <Text style={styles.takeNowText}>Take Now</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.takenPill}>
-                <Text style={styles.takenText}>Taken</Text>
+        <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Today's Medicines</Text>
+        <FontAwesome5 name="pills" size={20} color="black" />
+      </View>
+
+      {loading ? (
+        <ActivityIndicator size="large" color="blue" />
+      ) : (
+        <FlatList
+          data={medicines}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item }) => (
+            <View style={styles.medicineCard}>
+              <View style={styles.medicineInfo}>
+                <Text style={styles.medicineName}>{item.name} <Text style = {styles.doseAmount}>{item.doseAmount}</Text></Text>
+                <Text style={styles.medicineInstruction}>{item.instruction}</Text>
               </View>
-            )}
-          </View>
-        </View>
+              {item.status === 'pending' ? (
+                <TouchableOpacity style={styles.takeNowPill} onPress={() => handleTakeMedicine(item.id)}>
+                  <Text style={styles.takeNowText}>Take Now</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.takenPill}>
+                  <Text style={styles.takenText}>Taken</Text>
+                </View>
+              )}
+            </View>
+          )}
+        />
+      )}
+    </View>
         
         {/* Voice Commands */}
         <TouchableOpacity style={styles.voiceCommandCard}>
@@ -139,25 +162,7 @@ export default function HomePage() {
         </View>
       </ScrollView>
       
-      {/* Bottom Navigation */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={[styles.navItem, styles.activeNavItem]}>
-          <Ionicons name="home" size={24} color="black" />
-          <Text style={styles.navText}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="calendar" size={24} color="black" />
-          <Text style={styles.navText}>Schedule</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="person" size={24} color="black" />
-          <Text style={styles.navText}>Care</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="settings-outline" size={24} color="black" />
-          <Text style={styles.navText}>Settings</Text>
-        </TouchableOpacity>
-      </View>
+    
     </SafeAreaView>
   );
 }
@@ -168,15 +173,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff9e6',
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: '#fff9e6',
+  },
+  doseAmount: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: 'green',
+
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '500',
     color: '#888',
   },
+  
   content: {
     flex: 1,
   },
@@ -258,10 +273,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#fff9e6',
+    backgroundColor: '#f9e8c9',
     padding: 16,
     borderRadius: 8,
     marginBottom: 8,
+    marginHorizontal: 16,
   },
   medicineInfo: {
     flex: 1,
